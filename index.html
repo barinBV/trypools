@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sketchfab Hide Stairs - Mobile Safe</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+    }
+    body {
+      display: flex;
+      flex-direction: row;
+    }
+    .sidebar {
+      flex: 0 0 33.3%;
+      background-color: #ffffff;
+      padding: 20px;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+    }
+    .sidebar h2 {
+      margin-bottom: 15px;
+      font-size: 18px;
+      color: #333;
+    }
+    select {
+      padding: 12px 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      background-color: white;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      width: 100%;
+      max-width: 250px;
+    }
+    select:focus {
+      outline: none;
+      border-color: #4F46E5;
+    }
+    .viewer {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #eaeaea;
+    }
+    iframe {
+      border: none;
+      border-radius: 8px;
+      width: 100%;
+      height: 100%;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+    /* 📱 Mobile layout */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+      }
+      .sidebar {
+        flex: 0 0 auto;
+        width: 100%;
+        box-shadow: none;
+        border-bottom: 1px solid #ddd;
+      }
+      .viewer {
+        flex: 1;
+        width: 100%;
+        height: calc(100vh - 120px); /* full height minus sidebar */
+      }
+      iframe {
+        height: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>SELECT STAIRS</h2>
+    <select id="stairsDropdown">
+      <option value="stair_STI5S_BR_3">STAIRS_STI5S</option>
+      <option value="schody_STF5S_150cm_5">STAIRS_STF5S</option>
+      <option value="stair_STA5S_BR_7">STAIRS_STA5S</option>
+      <option value="SCHODY_STC5S_9">STAIRS_STC5S</option>
+      <option value="SCHODY_STJ5S_11">STAIRS_STJ5S</option>
+    </select>
+  </div>
+
+  <div class="viewer">
+    <iframe
+      id="api-frame"
+      allow="autoplay; fullscreen; xr-spatial-tracking"
+      allowfullscreen
+      mozallowfullscreen="true"
+      webkitallowfullscreen="true"
+      src="https://sketchfab.com/models/dc9c0be9f0104e779762a9dccb0aa219/embed">
+    </iframe>
+  </div>
+
+  <script>
+    var iframe = document.getElementById('api-frame');
+    var version = '1.12.1';
+    var uid = 'dc9c0be9f0104e779762a9dccb0aa219';
+    var client = new Sketchfab(version, iframe);
+
+    const stairsNames = [
+      'stair_STI5S_BR_3',
+      'schody_STF5S_150cm_5',
+      'stair_STA5S_BR_7',
+      'SCHODY_STC5S_9',
+      'SCHODY_STJ5S_11'
+    ];
+
+    let api;
+
+    const success = (apiInstance) => {
+      console.log("✅ API init success");
+      api = apiInstance;
+      api.start(() => {
+        console.log("▶ Viewer started");
+
+        api.addEventListener("viewerready", () => {
+          console.log("🎯 Viewer ready");
+
+          api.getNodeMap((err, nodes) => {
+            if (err) {
+              console.error("❌ Error getting node map:", err);
+              return;
+            }
+
+            // Hide all except first
+            stairsNames.forEach((name, index) => {
+              const node = Object.values(nodes).find(n => n.name === name);
+              if (node) {
+                if (index !== 0) {
+                  api.hide(node.instanceID);
+                } else {
+                  api.show(node.instanceID);
+                }
+              }
+            });
+
+            // Dropdown change listener
+            document.getElementById('stairsDropdown').addEventListener('change', function () {
+              const selectedName = this.value;
+              stairsNames.forEach(name => {
+                const node = Object.values(nodes).find(n => n.name === name);
+                if (node) {
+                  if (name === selectedName) {
+                    api.show(node.instanceID);
+                  } else {
+                    api.hide(node.instanceID);
+                  }
+                }
+              });
+            });
+          });
+        });
+      });
+    };
+
+    // Remove preload on mobile for reliability
+    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    client.init(uid, {
+      success: success,
+      error: function onError() {
+        console.log('❌ Viewer error');
+      },
+      ui_stop: 0,
+      preload: isMobile ? 0 : 1,
+      camera: 0
+    });
+  </script>
+
+</body>
+</html>
