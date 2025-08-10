@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sketchfab Hide Stairs - Mobile Safe</title>
+  <title>Sketchfab Stairs Selector</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
   <style>
@@ -16,6 +16,7 @@
     body {
       display: flex;
       flex-direction: row;
+      height: 100vh;
     }
     .sidebar {
       flex: 0 0 33.3%;
@@ -43,6 +44,23 @@
       outline: none;
       border-color: #4F46E5;
     }
+    .btn {
+      margin-top: 15px;
+      padding: 12px;
+      background-color: #4F46E5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 250px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transition: background-color 0.2s ease;
+    }
+    .btn:hover {
+      background-color: #4338CA;
+    }
     .viewer {
       flex: 1;
       display: flex;
@@ -57,7 +75,6 @@
       height: 100%;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     }
-    /* 📱 Mobile layout */
     @media (max-width: 768px) {
       body {
         flex-direction: column;
@@ -71,7 +88,7 @@
       .viewer {
         flex: 1;
         width: 100%;
-        height: calc(100vh - 120px); /* full height minus sidebar */
+        height: calc(100vh - 160px);
       }
       iframe {
         height: 100%;
@@ -90,17 +107,11 @@
       <option value="SCHODY_STC5S_9">STAIRS_STC5S</option>
       <option value="SCHODY_STJ5S_11">STAIRS_STJ5S</option>
     </select>
+    <button id="autoChangeBtn" class="btn">AUTO CHANGE</button>
   </div>
 
   <div class="viewer">
-    <iframe
-      id="api-frame"
-      allow="autoplay; fullscreen; xr-spatial-tracking"
-      allowfullscreen
-      mozallowfullscreen="true"
-      webkitallowfullscreen="true"
-      src="https://sketchfab.com/models/dc9c0be9f0104e779762a9dccb0aa219/embed">
-    </iframe>
+    <iframe id="api-frame" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>
   </div>
 
   <script>
@@ -118,55 +129,54 @@
     ];
 
     let api;
+    let autoChangeInterval = null;
+    let currentIndex = 0;
+
+    const changeStair = (selectedName, nodes) => {
+      stairsNames.forEach(name => {
+        const node = Object.values(nodes).find(n => n.name === name);
+        if (node) {
+          if (name === selectedName) {
+            api.show(node.instanceID);
+          } else {
+            api.hide(node.instanceID);
+          }
+        }
+      });
+    };
 
     const success = (apiInstance) => {
-      console.log("✅ API init success");
       api = apiInstance;
       api.start(() => {
-        console.log("▶ Viewer started");
-
         api.addEventListener("viewerready", () => {
-          console.log("🎯 Viewer ready");
-
           api.getNodeMap((err, nodes) => {
-            if (err) {
-              console.error("❌ Error getting node map:", err);
-              return;
-            }
+            if (err) return;
 
-            // Hide all except first
-            stairsNames.forEach((name, index) => {
-              const node = Object.values(nodes).find(n => n.name === name);
-              if (node) {
-                if (index !== 0) {
-                  api.hide(node.instanceID);
-                } else {
-                  api.show(node.instanceID);
-                }
+            // Show only the first stair at start
+            changeStair(stairsNames[0], nodes);
+
+            const dropdown = document.getElementById('stairsDropdown');
+            dropdown.addEventListener('change', function () {
+              if (autoChangeInterval) {
+                clearInterval(autoChangeInterval);
+                autoChangeInterval = null;
               }
+              changeStair(this.value, nodes);
+              currentIndex = stairsNames.indexOf(this.value);
             });
 
-            // Dropdown change listener
-            document.getElementById('stairsDropdown').addEventListener('change', function () {
-              const selectedName = this.value;
-              stairsNames.forEach(name => {
-                const node = Object.values(nodes).find(n => n.name === name);
-                if (node) {
-                  if (name === selectedName) {
-                    api.show(node.instanceID);
-                  } else {
-                    api.hide(node.instanceID);
-                  }
-                }
-              });
+            document.getElementById('autoChangeBtn').addEventListener('click', function () {
+              if (autoChangeInterval) return; // already running
+              autoChangeInterval = setInterval(() => {
+                currentIndex = (currentIndex + 1) % stairsNames.length;
+                dropdown.value = stairsNames[currentIndex];
+                changeStair(stairsNames[currentIndex], nodes);
+              }, 3000);
             });
           });
         });
       });
     };
-
-    // Remove preload on mobile for reliability
-    const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
     client.init(uid, {
       success: success,
@@ -174,7 +184,8 @@
         console.log('❌ Viewer error');
       },
       ui_stop: 0,
-      preload: isMobile ? 0 : 1,
+      preload: 1,
+      autostart: 1,
       camera: 0
     });
   </script>
